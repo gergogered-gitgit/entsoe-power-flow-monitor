@@ -1,0 +1,62 @@
+zones:
+  - code: 10YFI-1--------U
+    name: Finland
+    country: FI
+    lat: 61.9241
+    lon: 25.7482
+  - code: 10Y1001A1001A44P
+    name: Sweden SE1
+    country: SE
+    lat: 67.8558
+    lon: 20.2253
+  - code: 10Y1001A1001A45N
+    name: Sweden SE2
+    country: SE
+    lat: 63.8258
+    lon: 20.2630
+  - code: 10Y1001A1001A46L
+    name: Sweden SE3
+    country: SE
+    lat: 59.3293
+    lon: 18.0686
+  - code: 10Y1001A1001A47J
+    name: Sweden SE4
+    country: SE
+    lat: 55.6050
+    lon: 13.0038
+  - code: 10Y1001A1001A39I
+    name: Estonia
+    country: EE
+    lat: 58.5953
+    lon: 25.0136
+  - code: 10YLV-1001A00074
+    name: Latvia
+    country: LV
+    lat: 56.8796
+    lon: 24.6032
+  - code: 10YLT-1001A0008Q
+    name: Lithuania
+    country: LT
+    lat: 55.1694
+    lon: 23.8813
+
+border_pairs:
+  - from_zone: 10YFI-1--------U
+    to_zone: 10Y1001A1001A44P
+    label: Finland - Sweden SE1
+  - from_zone: 10YFI-1--------U
+    to_zone: 10Y1001A1001A39I
+    label: Finland - Estonia
+  - from_zone: 10Y1001A1001A39I
+    to_zone: 10YLV-1001A00074
+    label: Estonia - Latvia
+  - from_zone: 10YLV-1001A00074
+    to_zone: 10YLT-1001A0008Q
+    label: Latvia - Lithuania
+  - from_zone: 10Y1001A1001A45N
+    to_zone: 10Y1001A1001A46L
+    label: Sweden SE2 - Sweden SE3
+  - from_zone: 10Y1001A1001A46L
+    to_zone: 10Y1001A1001A47J
+    label: Sweden SE3 - Sweden SE4
+
