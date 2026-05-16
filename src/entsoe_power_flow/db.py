@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
+from uuid import UUID, uuid4
 
 import duckdb
 
 from entsoe_power_flow.config import get_settings, load_zone_config
+from entsoe_power_flow.flow_parser import FlowPoint
 
 
 def connect(db_path: Path | None = None) -> duckdb.DuckDBPyConnection:
@@ -12,6 +15,10 @@ def connect(db_path: Path | None = None) -> duckdb.DuckDBPyConnection:
     path = db_path or settings.duckdb_path
     path.parent.mkdir(parents=True, exist_ok=True)
     return duckdb.connect(str(path))
+
+
+def utc_now_naive() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def init_db() -> None:
@@ -43,7 +50,67 @@ def init_db() -> None:
     con.close()
 
 
+def start_ingestion_run(con: duckdb.DuckDBPyConnection, dataset: str) -> UUID:
+    run_id = uuid4()
+    con.execute(
+        """
+        insert into ingestion_runs (run_id, dataset, started_at, status)
+        values (?, ?, ?, ?)
+        """,
+        [str(run_id), dataset, utc_now_naive(), "running"],
+    )
+    return run_id
+
+
+def finish_ingestion_run(
+    con: duckdb.DuckDBPyConnection,
+    run_id: UUID,
+    status: str,
+    rows_loaded: int,
+    error: str | None = None,
+) -> None:
+    con.execute(
+        """
+        update ingestion_runs
+        set finished_at = ?, status = ?, rows_loaded = ?, error = ?
+        where run_id = ?
+        """,
+        [utc_now_naive(), status, rows_loaded, error, str(run_id)],
+    )
+
+
+def upsert_power_flows(
+    con: duckdb.DuckDBPyConnection,
+    from_zone: str,
+    to_zone: str,
+    points: list[FlowPoint],
+    fetched_at: datetime | None = None,
+) -> int:
+    if not points:
+        return 0
+
+    fetched_at = fetched_at or utc_now_naive()
+    con.executemany(
+        """
+        insert or replace into power_flows_hourly
+            (timestamp_utc, from_zone, to_zone, mw, source_revision, fetched_at)
+        values (?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                point.timestamp_utc.replace(tzinfo=None),
+                from_zone,
+                to_zone,
+                point.mw,
+                point.source_revision,
+                fetched_at,
+            )
+            for point in points
+        ],
+    )
+    return len(points)
+
+
 if __name__ == "__main__":
     init_db()
     print("Initialized DuckDB schema and seed metadata.")
-

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-import duckdb
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
+from entsoe_power_flow.dashboard_data import load_dashboard_data
 from entsoe_power_flow.config import get_settings
 
 
@@ -12,26 +13,93 @@ st.title("ENTSO-E European Power Flow Monitor")
 
 settings = get_settings()
 
-if not settings.duckdb_path.exists():
-    st.warning("Local database has not been initialized yet. Run `python -m entsoe_power_flow.db`.")
+if not settings.database_url and not settings.duckdb_path.exists():
+    st.warning(
+        "No data source is configured yet. Set DATABASE_URL for Supabase or run "
+        "`python -m entsoe_power_flow.db` for local DuckDB."
+    )
     st.stop()
 
-con = duckdb.connect(str(settings.duckdb_path), read_only=True)
+data = load_dashboard_data()
+zones = data.zones
+pairs = data.pairs
+flows = data.flows
 
-zones = con.sql("select * from zones order by country, zone_name").df()
-pairs = con.sql("select * from border_pairs where active order by label").df()
-flows = con.sql(
-    """
-    select timestamp_utc, from_zone, to_zone, mw
-    from power_flows_hourly
-    order by timestamp_utc desc
-    limit 10000
-    """
-).df()
+zone_names = dict(zip(zones["zone_code"], zones["zone_name"], strict=False))
+if not flows.empty:
+    flows["from_zone_name"] = flows["from_zone"].map(zone_names)
+    flows["to_zone_name"] = flows["to_zone"].map(zone_names)
+    flows["border_label"] = flows["from_zone_name"] + " -> " + flows["to_zone_name"]
+    latest_by_border = (
+        flows.sort_values("timestamp_utc")
+        .groupby(["from_zone", "to_zone"], as_index=False, group_keys=False)
+        .tail(1)
+        .copy()
+    )
+else:
+    latest_by_border = flows.copy()
+
+
+def make_flow_map(latest_flows, zones):
+    zone_lookup = zones.set_index("zone_code")
+    fig = go.Figure()
+    max_mw = max(float(latest_flows["mw"].max()), 1.0)
+
+    for flow in latest_flows.itertuples(index=False):
+        from_zone = zone_lookup.loc[flow.from_zone]
+        to_zone = zone_lookup.loc[flow.to_zone]
+        width = 1.5 + (float(flow.mw) / max_mw) * 6
+        fig.add_trace(
+            go.Scattergeo(
+                lon=[from_zone["lon"], to_zone["lon"]],
+                lat=[from_zone["lat"], to_zone["lat"]],
+                mode="lines",
+                line={"width": width, "color": "#2563eb"},
+                opacity=0.72,
+                text=(
+                    f"{from_zone['zone_name']} -> {to_zone['zone_name']}<br>"
+                    f"{flow.mw:,.0f} MW<br>{flow.timestamp_utc}"
+                ),
+                hoverinfo="text",
+                showlegend=False,
+            )
+        )
+
+    fig.add_trace(
+        go.Scattergeo(
+            lon=zones["lon"],
+            lat=zones["lat"],
+            mode="markers+text",
+            marker={"size": 9, "color": "#111827", "line": {"width": 1, "color": "white"}},
+            text=zones["zone_name"],
+            textposition="top center",
+            hovertext=zones["zone_name"] + " (" + zones["country"] + ")",
+            hoverinfo="text",
+            showlegend=False,
+        )
+    )
+    fig.update_geos(
+        scope="europe",
+        projection_type="natural earth",
+        showcountries=True,
+        countrycolor="#d1d5db",
+        showland=True,
+        landcolor="#f8fafc",
+        showocean=True,
+        oceancolor="#e0f2fe",
+        lataxis_range=[53, 69],
+        lonaxis_range=[10, 32],
+    )
+    fig.update_layout(
+        height=460,
+        margin={"l": 0, "r": 0, "t": 16, "b": 0},
+    )
+    return fig
 
 left, right = st.columns([1, 2])
 
 with left:
+    st.caption(f"Data source: {data.backend_name}")
     st.subheader("Coverage")
     st.dataframe(zones, use_container_width=True, hide_index=True)
     st.subheader("Border Pairs")
@@ -42,12 +110,22 @@ with right:
     if flows.empty:
         st.info("No flow data loaded yet. Once the ENTSO-E token is available, run a backfill.")
     else:
+        latest_timestamp = flows["timestamp_utc"].max()
+        total_cross_border_mw = latest_by_border["mw"].sum()
+
+        metric_left, metric_mid, metric_right = st.columns(3)
+        metric_left.metric("Latest hour", str(latest_timestamp))
+        metric_mid.metric("Latest known flow MW", f"{total_cross_border_mw:,.0f}")
+        metric_right.metric("Last fetch", str(data.last_fetch))
+
+        st.subheader("Flow Map")
+        st.plotly_chart(make_flow_map(latest_by_border, zones), use_container_width=True)
+
         selected_pair = st.selectbox(
             "Border pair",
-            sorted((flows["from_zone"] + " -> " + flows["to_zone"]).unique()),
+            sorted(flows["border_label"].unique()),
         )
-        from_zone, to_zone = selected_pair.split(" -> ")
-        pair_flows = flows[(flows["from_zone"] == from_zone) & (flows["to_zone"] == to_zone)]
+        pair_flows = flows[flows["border_label"] == selected_pair]
         fig = px.line(
             pair_flows.sort_values("timestamp_utc"),
             x="timestamp_utc",
@@ -56,9 +134,17 @@ with right:
         )
         st.plotly_chart(fig, use_container_width=True)
 
+        st.subheader("Latest Border Snapshot")
+        st.dataframe(
+            latest_by_border[["border_label", "timestamp_utc", "mw"]].sort_values(
+                "mw", ascending=False
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+
 st.subheader("Ingestion Health")
-try:
-    runs = con.sql("select * from ingestion_runs order by started_at desc limit 20").df()
-    st.dataframe(runs, use_container_width=True, hide_index=True)
-except duckdb.CatalogException:
+if data.runs.empty:
     st.info("No ingestion runs recorded yet.")
+else:
+    st.dataframe(data.runs, use_container_width=True, hide_index=True)

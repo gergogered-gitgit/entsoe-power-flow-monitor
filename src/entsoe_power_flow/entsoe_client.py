@@ -38,14 +38,13 @@ class EntsoeClient:
         period_start: datetime,
         period_end: datetime,
     ) -> str:
-        # Document/process codes are kept explicit so the first API spike can verify them.
+        # ENTSO-E reports flows from out_Domain into in_Domain.
         return self.get(
             {
                 "documentType": "A11",
-                "in_Domain": from_zone,
-                "out_Domain": to_zone,
+                "in_Domain": to_zone,
+                "out_Domain": from_zone,
                 "periodStart": period_start.strftime("%Y%m%d%H%M"),
                 "periodEnd": period_end.strftime("%Y%m%d%H%M"),
             }
         )
-

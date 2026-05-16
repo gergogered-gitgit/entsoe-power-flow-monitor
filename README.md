@@ -29,6 +29,12 @@ Add your ENTSO-E token to `.env`:
 ENTSOE_API_TOKEN=your-token-here
 ```
 
+For hosted Supabase/Postgres storage, also set:
+
+```text
+DATABASE_URL=postgresql://...
+```
+
 ## Run
 
 Initialize the local DuckDB schema:
@@ -49,6 +55,47 @@ Backfill flow data once the API token is available:
 entsoe-backfill-flows --days 7
 ```
 
+The backfill command initializes the database if needed, requests each configured border pair,
+parses ENTSO-E XML points, upserts hourly rows, and records the run in `ingestion_runs`.
+
+Run checks:
+
+```powershell
+python -m pytest
+python -m ruff check .
+```
+
+## Supabase
+
+Create a Supabase project, open the SQL editor, and run `sql/supabase_schema.sql`.
+
+Use the project's Postgres connection string as `DATABASE_URL` for backend ingestion and for
+Streamlit reads. Keep that value in GitHub Actions secrets and Streamlit secrets; do not commit it.
+
+Backfill into Supabase locally:
+
+```powershell
+entsoe-backfill-flows --days 3 --storage postgres
+```
+
+## Scheduled Ingestion
+
+The workflow at `.github/workflows/ingest-flows.yml` runs once per week and can also be started
+manually from GitHub Actions. Each run refetches the last 14 days so late or revised ENTSO-E
+records are upserted without pretending the MVP needs daily monitoring.
+
+Required GitHub repository secrets:
+
+- `ENTSOE_API_TOKEN`
+- `DATABASE_URL`
+
+The job writes to Supabase/Postgres.
+
+## Streamlit Cloud
+
+Deploy `app/streamlit_app.py` from the GitHub repository. Add `DATABASE_URL` to Streamlit secrets so
+the dashboard reads from Supabase. If `DATABASE_URL` is not set, the app falls back to local DuckDB.
+
 ## Data Design
 
 The pipeline uses a rolling backfill window because ENTSO-E data can arrive late or be revised after first publication. Each run should refetch recent periods and upsert by natural key.
@@ -65,4 +112,3 @@ Core tables:
 ## ENTSO-E Access
 
 REST API access requires a Transparency Platform account, a request for RESTful API access, and a generated security token. See `docs/entsoe-access-email.md` for a draft email.
-

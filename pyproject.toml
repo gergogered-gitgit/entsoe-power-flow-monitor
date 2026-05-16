@@ -9,6 +9,7 @@ dependencies = [
     "httpx>=0.27",
     "pandas>=2.2",
     "plotly>=5.22",
+    "psycopg[binary]>=3.2",
     "pydantic>=2.7",
     "pydantic-settings>=2.2",
     "python-dotenv>=1.0",
