@@ -25,6 +25,7 @@ dev = [
 
 [project.scripts]
 entsoe-backfill-flows = "entsoe_power_flow.cli:backfill_flows"
+entsoe-backfill-capacities = "entsoe_power_flow.cli:backfill_capacities"
 
 [build-system]
 requires = ["hatchling"]

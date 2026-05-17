@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 import duckdb
 
 from entsoe_power_flow.config import get_settings, load_zone_config
-from entsoe_power_flow.flow_parser import FlowPoint
+from entsoe_power_flow.flow_parser import CapacityPoint, FlowPoint
 
 
 def connect(db_path: Path | None = None) -> duckdb.DuckDBPyConnection:
@@ -45,6 +45,25 @@ def init_db() -> None:
         [
             (pair["from_zone"], pair["to_zone"], pair["label"])
             for pair in config["border_pairs"]
+        ],
+    )
+    con.executemany(
+        """
+        insert or replace into border_assets
+            (from_zone, to_zone, asset_name, asset_type, nominal_capacity_mw, source_url, notes)
+        values (?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                asset["from_zone"],
+                asset["to_zone"],
+                asset["asset_name"],
+                asset["asset_type"],
+                asset["nominal_capacity_mw"],
+                asset.get("source_url"),
+                asset.get("notes"),
+            )
+            for asset in config.get("border_assets", [])
         ],
     )
     con.close()
@@ -102,6 +121,40 @@ def upsert_power_flows(
                 from_zone,
                 to_zone,
                 point.mw,
+                point.source_revision,
+                fetched_at,
+            )
+            for point in points
+        ],
+    )
+    return len(points)
+
+
+def upsert_transfer_capacities(
+    con: duckdb.DuckDBPyConnection,
+    from_zone: str,
+    to_zone: str,
+    points: list[CapacityPoint],
+    capacity_type: str,
+    fetched_at: datetime | None = None,
+) -> int:
+    if not points:
+        return 0
+
+    fetched_at = fetched_at or utc_now_naive()
+    con.executemany(
+        """
+        insert or replace into transfer_capacities_hourly
+            (timestamp_utc, from_zone, to_zone, capacity_mw, capacity_type, source_revision, fetched_at)
+        values (?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                point.timestamp_utc.replace(tzinfo=None),
+                from_zone,
+                to_zone,
+                point.capacity_mw,
+                capacity_type,
                 point.source_revision,
                 fetched_at,
             )

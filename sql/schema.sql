@@ -15,6 +15,17 @@ create table if not exists border_pairs (
     primary key (from_zone, to_zone)
 );
 
+create table if not exists border_assets (
+    from_zone text not null,
+    to_zone text not null,
+    asset_name text not null,
+    asset_type text not null,
+    nominal_capacity_mw double not null,
+    source_url text,
+    notes text,
+    primary key (from_zone, to_zone, asset_name)
+);
+
 create table if not exists power_flows_hourly (
     timestamp_utc timestamp not null,
     from_zone text not null,
@@ -23,6 +34,17 @@ create table if not exists power_flows_hourly (
     source_revision text,
     fetched_at timestamp not null,
     primary key (timestamp_utc, from_zone, to_zone)
+);
+
+create table if not exists transfer_capacities_hourly (
+    timestamp_utc timestamp not null,
+    from_zone text not null,
+    to_zone text not null,
+    capacity_mw double not null,
+    capacity_type text not null,
+    source_revision text,
+    fetched_at timestamp not null,
+    primary key (timestamp_utc, from_zone, to_zone, capacity_type)
 );
 
 create table if not exists generation_hourly (
@@ -52,4 +74,3 @@ create table if not exists ingestion_runs (
     rows_loaded integer,
     error text
 );
-

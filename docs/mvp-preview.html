@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ENTSO-E Power Flow Monitor MVP Preview</title>
+    <style>
+      :root {
+        --ink: #172033;
+        --muted: #657187;
+        --line: #d8dee9;
+        --panel: #ffffff;
+        --bg: #f4f7fb;
+        --blue: #2463eb;
+        --green: #10815c;
+        --amber: #b76a00;
+        --sea: #dff4fb;
+        --land: #eef3eb;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        letter-spacing: 0;
+      }
+
+      .shell {
+        min-height: 100vh;
+        display: grid;
+        grid-template-rows: auto 1fr;
+      }
+
+      header {
+        background: var(--panel);
+        border-bottom: 1px solid var(--line);
+        padding: 18px 24px;
+      }
+
+      .header-row {
+        max-width: 1440px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 22px;
+        line-height: 1.2;
+        font-weight: 750;
+      }
+
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--green);
+        font-size: 14px;
+        white-space: nowrap;
+      }
+
+      .status-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--green);
+      }
+
+      main {
+        max-width: 1440px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 20px 24px 28px;
+        display: grid;
+        grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
+        gap: 18px;
+      }
+
+      aside,
+      section,
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+
+      aside {
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      section {
+        padding: 16px;
+      }
+
+      h2 {
+        margin: 0 0 10px;
+        font-size: 15px;
+        font-weight: 720;
+      }
+
+      .caption {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+
+      .table th,
+      .table td {
+        padding: 9px 8px;
+        border-bottom: 1px solid #edf1f6;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .table th {
+        color: var(--muted);
+        font-weight: 650;
+      }
+
+      .dashboard {
+        display: grid;
+        gap: 16px;
+      }
+
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .metric {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 12px;
+        min-height: 78px;
+      }
+
+      .metric-label {
+        color: var(--muted);
+        font-size: 12px;
+        margin-bottom: 6px;
+      }
+
+      .metric-value {
+        font-size: 20px;
+        font-weight: 760;
+        line-height: 1.2;
+      }
+
+      .content-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+        gap: 14px;
+      }
+
+      .map-wrap {
+        min-height: 470px;
+        overflow: hidden;
+      }
+
+      .map {
+        width: 100%;
+        height: 470px;
+        display: block;
+        background: var(--sea);
+        border-radius: 6px;
+      }
+
+      .flow {
+        fill: none;
+        stroke: var(--blue);
+        stroke-linecap: round;
+        opacity: 0.76;
+      }
+
+      .zone {
+        fill: #172033;
+        stroke: white;
+        stroke-width: 2;
+      }
+
+      .zone-label {
+        font-size: 12px;
+        font-weight: 700;
+        fill: #172033;
+        paint-order: stroke;
+        stroke: white;
+        stroke-width: 4px;
+        stroke-linejoin: round;
+      }
+
+      .land {
+        fill: var(--land);
+        stroke: #c7d0da;
+        stroke-width: 1;
+      }
+
+      .snapshot {
+        max-height: 470px;
+        overflow: auto;
+      }
+
+      .bar-cell {
+        min-width: 130px;
+      }
+
+      .bar {
+        height: 8px;
+        border-radius: 999px;
+        background: #e7edf8;
+        overflow: hidden;
+      }
+
+      .bar span {
+        display: block;
+        height: 100%;
+        background: var(--blue);
+      }
+
+      .trend {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(250px, 0.72fr);
+        gap: 14px;
+      }
+
+      .line-chart {
+        width: 100%;
+        height: 210px;
+        display: block;
+      }
+
+      .health {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .run {
+        display: grid;
+        grid-template-columns: 92px 1fr 72px;
+        gap: 10px;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid #edf1f6;
+        font-size: 13px;
+      }
+
+      .pill {
+        display: inline-flex;
+        justify-content: center;
+        border-radius: 999px;
+        padding: 4px 8px;
+        color: var(--green);
+        background: #e9f8f1;
+        font-weight: 700;
+        font-size: 12px;
+      }
+
+      .warn {
+        color: var(--amber);
+        background: #fff3df;
+      }
+
+      @media (max-width: 980px) {
+        main,
+        .content-grid,
+        .trend {
+          grid-template-columns: 1fr;
+        }
+
+        aside {
+          order: 2;
+        }
+      }
+
+      @media (max-width: 720px) {
+        header,
+        main {
+          padding-left: 14px;
+          padding-right: 14px;
+        }
+
+        .header-row,
+        .metrics {
+          display: grid;
+          grid-template-columns: 1fr;
+        }
+
+        .status {
+          white-space: normal;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header>
+        <div class="header-row">
+          <h1>ENTSO-E European Power Flow Monitor</h1>
+          <div class="status"><span class="status-dot"></span> Supabase Postgres connected</div>
+        </div>
+      </header>
+
+      <main>
+        <aside>
+          <div>
+            <div class="caption">Data source</div>
+            <strong>Weekly ENTSO-E flow and capacity ingestion</strong>
+          </div>
+
+          <div>
+            <h2>Coverage</h2>
+            <table class="table">
+              <thead>
+                <tr><th>Zone</th><th>Country</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Finland</td><td>FI</td></tr>
+                <tr><td>Sweden SE1</td><td>SE</td></tr>
+                <tr><td>Sweden SE2</td><td>SE</td></tr>
+                <tr><td>Sweden SE3</td><td>SE</td></tr>
+                <tr><td>Sweden SE4</td><td>SE</td></tr>
+                <tr><td>Estonia</td><td>EE</td></tr>
+                <tr><td>Latvia</td><td>LV</td></tr>
+                <tr><td>Lithuania</td><td>LT</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div>
+            <h2>Ingestion Health</h2>
+            <div class="health">
+              <div class="run"><span class="pill">succeeded</span><span>2026-05-16 10:37 UTC</span><strong>398</strong></div>
+              <div class="run"><span class="pill warn">weekly</span><span>Next run Monday 04:17 UTC</span><strong>14d</strong></div>
+            </div>
+          </div>
+
+          <div>
+            <h2>Infrastructure</h2>
+            <table class="table">
+              <thead>
+                <tr><th>Asset</th><th>MW</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>EstLink 1</td><td>350</td></tr>
+                <tr><td>EstLink 2</td><td>650</td></tr>
+                <tr><td>NordBalt</td><td>700</td></tr>
+                <tr><td>Estonia - Latvia profile</td><td>1,447</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </aside>
+
+        <section class="dashboard">
+          <div class="metrics">
+            <div class="metric">
+              <div class="metric-label">Latest hour</div>
+              <div class="metric-value">2026-05-16 09:45</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Latest known flow MW</div>
+              <div class="metric-value">3,420</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Highest utilization</div>
+              <div class="metric-value">78%</div>
+            </div>
+          </div>
+
+          <div class="content-grid">
+            <div class="panel map-wrap">
+              <svg class="map" viewBox="0 0 760 470" role="img" aria-label="Map of Baltic and Nordic electricity flows">
+                <path class="land" d="M65,34 C130,10 216,42 238,96 C263,155 226,214 245,285 C266,362 338,391 348,454 L38,454 L38,54 Z" />
+                <path class="land" d="M325,38 C430,6 548,51 596,130 C646,212 635,303 694,400 L720,454 L374,454 C350,379 323,333 337,260 C351,187 307,114 325,38 Z" />
+                <path class="land" d="M420,256 C486,237 552,258 590,303 C629,351 630,415 604,454 L399,454 C379,408 370,352 385,309 C393,285 404,268 420,256 Z" />
+
+                <path class="flow" d="M332,110 C291,123 254,135 212,152" stroke-width="2.1" />
+                <path class="flow" d="M332,110 C405,163 472,214 540,272" stroke-width="6.9" />
+                <path class="flow" d="M540,272 C555,305 565,330 572,360" stroke-width="6.4" />
+                <path class="flow" d="M572,360 C586,383 598,405 606,428" stroke-width="7.4" />
+                <path class="flow" d="M195,252 C227,286 258,318 291,354" stroke-width="8.0" />
+                <path class="flow" d="M291,354 C304,382 319,407 335,430" stroke-width="7.7" />
+
+                <circle class="zone" cx="332" cy="110" r="7" />
+                <text class="zone-label" x="345" y="108">Finland</text>
+                <circle class="zone" cx="212" cy="152" r="7" />
+                <text class="zone-label" x="132" y="150">Sweden SE1</text>
+                <circle class="zone" cx="195" cy="252" r="7" />
+                <text class="zone-label" x="112" y="255">Sweden SE2</text>
+                <circle class="zone" cx="291" cy="354" r="7" />
+                <text class="zone-label" x="203" y="352">Sweden SE3</text>
+                <circle class="zone" cx="335" cy="430" r="7" />
+                <text class="zone-label" x="247" y="429">Sweden SE4</text>
+                <circle class="zone" cx="540" cy="272" r="7" />
+                <text class="zone-label" x="553" y="270">Estonia</text>
+                <circle class="zone" cx="572" cy="360" r="7" />
+                <text class="zone-label" x="585" y="360">Latvia</text>
+                <circle class="zone" cx="606" cy="428" r="7" />
+                <text class="zone-label" x="618" y="428">Lithuania</text>
+              </svg>
+            </div>
+
+            <div class="panel snapshot">
+              <div style="padding: 14px">
+                <h2>Latest Border Snapshot</h2>
+                <table class="table">
+                  <thead>
+                    <tr><th>Border</th><th>Flow</th><th>Capacity</th><th>Use</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>Latvia -> Lithuania</td><td>780 MW</td><td>1,234 MW</td><td class="bar-cell"><div class="bar"><span style="width: 63%"></span></div></td></tr>
+                    <tr><td>Finland -> Estonia</td><td>640 MW</td><td>1,000 MW</td><td><div class="bar"><span style="width: 64%"></span></div></td></tr>
+                    <tr><td>Sweden SE4 -> Lithuania</td><td>420 MW</td><td>700 MW</td><td><div class="bar"><span style="width: 60%"></span></div></td></tr>
+                    <tr><td>Estonia -> Latvia</td><td>610 MW</td><td>1,447 MW</td><td><div class="bar"><span style="width: 42%"></span></div></td></tr>
+                    <tr><td>Finland -> Sweden SE1</td><td>50 MW</td><td>1,900 MW</td><td><div class="bar"><span style="width: 3%"></span></div></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="trend">
+            <div class="panel" style="padding: 14px">
+              <h2>Selected Border Trend</h2>
+              <svg class="line-chart" viewBox="0 0 720 210" role="img" aria-label="Electricity flow trend line">
+                <line x1="42" y1="172" x2="700" y2="172" stroke="#d8dee9" />
+                <line x1="42" y1="42" x2="42" y2="172" stroke="#d8dee9" />
+                <polyline points="42,142 104,119 166,132 228,95 290,88 352,102 414,72 476,83 538,55 600,69 662,48 700,60" fill="none" stroke="#10815c" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+                <text x="42" y="198" fill="#657187" font-size="12">last 24h</text>
+                <text x="607" y="198" fill="#657187" font-size="12">latest</text>
+              </svg>
+            </div>
+
+            <div class="panel" style="padding: 14px">
+              <h2>What This MVP Answers</h2>
+              <table class="table">
+                <tbody>
+                  <tr><td>Which borders moved the most power?</td></tr>
+                  <tr><td>When was the data last fetched?</td></tr>
+                  <tr><td>Are weekly ingestion jobs succeeding?</td></tr>
+                  <tr><td>What does the regional flow pattern look like?</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

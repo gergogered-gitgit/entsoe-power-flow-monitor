@@ -59,4 +59,50 @@ border_pairs:
   - from_zone: 10Y1001A1001A46L
     to_zone: 10Y1001A1001A47J
     label: Sweden SE3 - Sweden SE4
+  - from_zone: 10Y1001A1001A47J
+    to_zone: 10YLT-1001A0008Q
+    label: Sweden SE4 - Lithuania
 
+border_assets:
+  - from_zone: 10YFI-1--------U
+    to_zone: 10Y1001A1001A44P
+    asset_name: Finland - Northern Sweden market border
+    asset_type: AC interconnection
+    nominal_capacity_mw: 1900
+    source_url: https://www.fingrid.fi/en/electricity-market/rajajohto-informaatio/notice-on-capacity/
+    notes: Fingrid states maximum net transfer capacity available for market is 1900 MW from North Sweden to Finland; use as reference capacity until API capacity history is loaded.
+  - from_zone: 10YFI-1--------U
+    to_zone: 10Y1001A1001A39I
+    asset_name: EstLink 1
+    asset_type: HVDC interconnector
+    nominal_capacity_mw: 350
+    source_url: https://elering.ee/en/estlink-1
+    notes: One of two Finland-Estonia HVDC links.
+  - from_zone: 10YFI-1--------U
+    to_zone: 10Y1001A1001A39I
+    asset_name: EstLink 2
+    asset_type: HVDC interconnector
+    nominal_capacity_mw: 650
+    source_url: https://group.merko.ee/en/project/installation-of-estlink-2-underground-cable/
+    notes: Second Finland-Estonia HVDC link; combined nominal reference with EstLink 1 is 1000 MW.
+  - from_zone: 10Y1001A1001A39I
+    to_zone: 10YLV-1001A00074
+    asset_name: Estonia - Latvia AC profile
+    asset_type: AC interconnection
+    nominal_capacity_mw: 1447
+    source_url: https://www.litgrid.eu/index.php/electricity-market/capacities-impact-on-price-/32112
+    notes: Litgrid describes Estonia-Latvia interconnector capacity as 1447 MW.
+  - from_zone: 10YLV-1001A00074
+    to_zone: 10YLT-1001A0008Q
+    asset_name: Latvia - Lithuania AC profile
+    asset_type: AC interconnection
+    nominal_capacity_mw: 1234
+    source_url: https://www.iea.org/articles/lithuania-electricity-security-policy
+    notes: IEA lists Lithuania import capacity from Latvia as 1234 MW; use for Latvia to Lithuania direction.
+  - from_zone: 10Y1001A1001A47J
+    to_zone: 10YLT-1001A0008Q
+    asset_name: NordBalt
+    asset_type: HVDC interconnector
+    nominal_capacity_mw: 700
+    source_url: https://www.epsog.lt/en/projects/nordbalt-the-power-link-between-lithuania-and-sweden
+    notes: Sweden-Lithuania HVDC link connecting SE4 and Lithuania.

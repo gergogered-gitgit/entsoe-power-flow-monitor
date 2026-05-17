@@ -48,3 +48,22 @@ class EntsoeClient:
                 "periodEnd": period_end.strftime("%Y%m%d%H%M"),
             }
         )
+
+    def fetch_estimated_transfer_capacity(
+        self,
+        from_zone: str,
+        to_zone: str,
+        period_start: datetime,
+        period_end: datetime,
+        contract_type: str = "A01",
+    ) -> str:
+        return self.get(
+            {
+                "documentType": "A61",
+                "contract_MarketAgreement.Type": contract_type,
+                "in_Domain": to_zone,
+                "out_Domain": from_zone,
+                "periodStart": period_start.strftime("%Y%m%d%H%M"),
+                "periodEnd": period_end.strftime("%Y%m%d%H%M"),
+            }
+        )

@@ -13,6 +13,8 @@ The first vertical slice tracks cross-border physical flows for the Baltic/Nordi
 - Lithuania
 
 The dashboard will show selected-hour flow arrows, border-pair trends, top importers/exporters, and ingestion health.
+The next layer adds border infrastructure, reference capacities, ENTSO-E transfer capacities where
+available, and utilization percentages.
 
 ## Setup
 
@@ -76,6 +78,7 @@ Backfill into Supabase locally:
 
 ```powershell
 entsoe-backfill-flows --days 3 --storage postgres
+entsoe-backfill-capacities --days 14 --storage postgres
 ```
 
 ## Scheduled Ingestion

@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from entsoe_power_flow.flow_parser import parse_physical_flows
+from entsoe_power_flow.flow_parser import parse_physical_flows, parse_transfer_capacities
 
 
 SAMPLE_FLOW_XML = """<?xml version="1.0" encoding="UTF-8"?>
@@ -47,3 +47,11 @@ def test_parse_physical_flows_rejects_unknown_resolution() -> None:
 
     with pytest.raises(ValueError, match="Unsupported ENTSO-E resolution"):
         parse_physical_flows(xml)
+
+
+def test_parse_transfer_capacities_reads_quantity_as_capacity() -> None:
+    points = parse_transfer_capacities(SAMPLE_FLOW_XML)
+
+    assert [point.capacity_mw for point in points] == [1200.0, 950.5, 875.0]
+    assert points[0].timestamp_utc == datetime(2026, 5, 15, 0, 0, tzinfo=timezone.utc)
+    assert {point.source_revision for point in points} == {"2"}

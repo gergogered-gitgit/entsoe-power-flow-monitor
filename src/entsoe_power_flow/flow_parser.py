@@ -12,11 +12,48 @@ class FlowPoint:
     source_revision: str | None = None
 
 
+@dataclass(frozen=True)
+class CapacityPoint:
+    timestamp_utc: datetime
+    capacity_mw: float
+    source_revision: str | None = None
+
+
 def parse_physical_flows(xml_text: str) -> list[FlowPoint]:
     """Parse ENTSO-E physical flow XML into hourly points."""
+    return [
+        FlowPoint(
+            timestamp_utc=point.timestamp_utc,
+            mw=point.quantity,
+            source_revision=point.source_revision,
+        )
+        for point in _parse_quantity_points(xml_text)
+    ]
+
+
+def parse_transfer_capacities(xml_text: str) -> list[CapacityPoint]:
+    """Parse ENTSO-E transfer capacity XML into time-series points."""
+    return [
+        CapacityPoint(
+            timestamp_utc=point.timestamp_utc,
+            capacity_mw=point.quantity,
+            source_revision=point.source_revision,
+        )
+        for point in _parse_quantity_points(xml_text)
+    ]
+
+
+@dataclass(frozen=True)
+class QuantityPoint:
+    timestamp_utc: datetime
+    quantity: float
+    source_revision: str | None = None
+
+
+def _parse_quantity_points(xml_text: str) -> list[QuantityPoint]:
     root = ElementTree.fromstring(xml_text)
     namespace = _namespace(root.tag)
-    points: list[FlowPoint] = []
+    points: list[QuantityPoint] = []
 
     for time_series in root.findall(f".//{namespace}TimeSeries"):
         revision = _optional_text(time_series, f"{namespace}revisionNumber")
@@ -31,9 +68,9 @@ def parse_physical_flows(xml_text: str) -> list[FlowPoint]:
                 quantity = float(_required_text(point, f"{namespace}quantity"))
                 timestamp = period_start + ((position - 1) * step)
                 points.append(
-                    FlowPoint(
+                    QuantityPoint(
                         timestamp_utc=timestamp,
-                        mw=quantity,
+                        quantity=quantity,
                         source_revision=revision,
                     )
                 )

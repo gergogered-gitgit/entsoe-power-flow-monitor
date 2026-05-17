@@ -23,7 +23,9 @@ if not settings.database_url and not settings.duckdb_path.exists():
 data = load_dashboard_data()
 zones = data.zones
 pairs = data.pairs
+assets = data.assets
 flows = data.flows
+capacities = data.capacities
 
 zone_names = dict(zip(zones["zone_code"], zones["zone_name"], strict=False))
 if not flows.empty:
@@ -38,6 +40,34 @@ if not flows.empty:
     )
 else:
     latest_by_border = flows.copy()
+
+if not capacities.empty:
+    latest_capacities = (
+        capacities.sort_values("timestamp_utc")
+        .groupby(["from_zone", "to_zone"], as_index=False, group_keys=False)
+        .tail(1)
+        .copy()
+    )
+else:
+    latest_capacities = capacities.copy()
+
+asset_capacity = (
+    assets.groupby(["from_zone", "to_zone"], as_index=False)["nominal_capacity_mw"]
+    .sum()
+    .rename(columns={"nominal_capacity_mw": "reference_capacity_mw"})
+)
+if not latest_by_border.empty:
+    latest_by_border = latest_by_border.merge(
+        latest_capacities[["from_zone", "to_zone", "capacity_mw", "capacity_type"]],
+        on=["from_zone", "to_zone"],
+        how="left",
+    ).merge(asset_capacity, on=["from_zone", "to_zone"], how="left")
+    latest_by_border["display_capacity_mw"] = latest_by_border["capacity_mw"].fillna(
+        latest_by_border["reference_capacity_mw"]
+    )
+    latest_by_border["utilization_pct"] = (
+        latest_by_border["mw"] / latest_by_border["display_capacity_mw"] * 100
+    ).where(latest_by_border["display_capacity_mw"].notna())
 
 
 def make_flow_map(latest_flows, zones):
@@ -59,6 +89,11 @@ def make_flow_map(latest_flows, zones):
                 text=(
                     f"{from_zone['zone_name']} -> {to_zone['zone_name']}<br>"
                     f"{flow.mw:,.0f} MW<br>{flow.timestamp_utc}"
+                    + (
+                        f"<br>{flow.utilization_pct:.0f}% of capacity"
+                        if hasattr(flow, "utilization_pct") and flow.utilization_pct == flow.utilization_pct
+                        else ""
+                    )
                 ),
                 hoverinfo="text",
                 showlegend=False,
@@ -104,6 +139,12 @@ with left:
     st.dataframe(zones, use_container_width=True, hide_index=True)
     st.subheader("Border Pairs")
     st.dataframe(pairs, use_container_width=True, hide_index=True)
+    st.subheader("Infrastructure")
+    st.dataframe(
+        assets[["asset_name", "asset_type", "nominal_capacity_mw"]],
+        use_container_width=True,
+        hide_index=True,
+    )
 
 with right:
     st.subheader("Latest Flows")
@@ -136,9 +177,15 @@ with right:
 
         st.subheader("Latest Border Snapshot")
         st.dataframe(
-            latest_by_border[["border_label", "timestamp_utc", "mw"]].sort_values(
-                "mw", ascending=False
-            ),
+            latest_by_border[
+                [
+                    "border_label",
+                    "timestamp_utc",
+                    "mw",
+                    "display_capacity_mw",
+                    "utilization_pct",
+                ]
+            ].sort_values("utilization_pct", ascending=False, na_position="last"),
             use_container_width=True,
             hide_index=True,
         )

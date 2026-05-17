@@ -8,7 +8,7 @@ import psycopg
 from psycopg import Connection
 
 from entsoe_power_flow.config import get_settings, load_zone_config
-from entsoe_power_flow.flow_parser import FlowPoint
+from entsoe_power_flow.flow_parser import CapacityPoint, FlowPoint
 
 
 def connect(database_url: str | None = None) -> Connection:
@@ -54,6 +54,30 @@ def init_db() -> None:
             [
                 (pair["from_zone"], pair["to_zone"], pair["label"])
                 for pair in config["border_pairs"]
+            ],
+        )
+        con.executemany(
+            """
+            insert into border_assets
+                (from_zone, to_zone, asset_name, asset_type, nominal_capacity_mw, source_url, notes)
+            values (%s, %s, %s, %s, %s, %s, %s)
+            on conflict (from_zone, to_zone, asset_name) do update set
+                asset_type = excluded.asset_type,
+                nominal_capacity_mw = excluded.nominal_capacity_mw,
+                source_url = excluded.source_url,
+                notes = excluded.notes
+            """,
+            [
+                (
+                    asset["from_zone"],
+                    asset["to_zone"],
+                    asset["asset_name"],
+                    asset["asset_type"],
+                    asset["nominal_capacity_mw"],
+                    asset.get("source_url"),
+                    asset.get("notes"),
+                )
+                for asset in config.get("border_assets", [])
             ],
         )
 
@@ -114,6 +138,44 @@ def upsert_power_flows(
                 from_zone,
                 to_zone,
                 point.mw,
+                point.source_revision,
+                fetched_at,
+            )
+            for point in points
+        ],
+    )
+    return len(points)
+
+
+def upsert_transfer_capacities(
+    con: Connection,
+    from_zone: str,
+    to_zone: str,
+    points: list[CapacityPoint],
+    capacity_type: str,
+    fetched_at: datetime | None = None,
+) -> int:
+    if not points:
+        return 0
+
+    fetched_at = fetched_at or utc_now()
+    con.executemany(
+        """
+        insert into transfer_capacities_hourly
+            (timestamp_utc, from_zone, to_zone, capacity_mw, capacity_type, source_revision, fetched_at)
+        values (%s, %s, %s, %s, %s, %s, %s)
+        on conflict (timestamp_utc, from_zone, to_zone, capacity_type) do update set
+            capacity_mw = excluded.capacity_mw,
+            source_revision = excluded.source_revision,
+            fetched_at = excluded.fetched_at
+        """,
+        [
+            (
+                point.timestamp_utc,
+                from_zone,
+                to_zone,
+                point.capacity_mw,
+                capacity_type,
                 point.source_revision,
                 fetched_at,
             )
